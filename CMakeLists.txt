@@ -3,4 +3,4 @@ project(ccd)
 
 set(CMAKE_CXX_STANDARD 14)
 
-add_library(ccd ccd.cpp library.h)
+add_library(ccd src/ccd.cpp src/library.h)

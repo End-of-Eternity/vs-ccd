@@ -39,7 +39,7 @@ cxx = meson.get_compiler('cpp')
 
 
 sources = [
-  'ccd.cpp',
+  'src\ccd.cpp',
 ]
 
 deps = [
