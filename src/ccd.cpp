@@ -4,17 +4,16 @@
 #include <VSHelper.h>
 
 // i dont know if there's a better way to do this :dek:
-static const double DIVISORS[] = {1., 1. / 2, 1. / 3, 1. / 4, 1. / 5, 1. / 6, 1. / 7, 1. / 8, 1. / 9, 1. / 10, 1. / 11, 1. / 12, 1. / 13, 1. / 14, 1. / 15, 1. / 16, 1. / 17, 1. / 18, 1. / 19, 1. / 20};
+static const double DIVISORS[] = {1., 1. / 2, 1. / 3, 1. / 4, 1. / 5, 1. / 6, 1. / 7, 1. / 8, 1. / 9, 1. / 10, 1. / 11,
+                                  1. / 12, 1. / 13, 1. / 14, 1. / 15, 1. / 16, 1. / 17, 1. / 18, 1. / 19, 1. / 20};
 
-typedef struct ccdData
-{
+typedef struct ccdData {
     VSNodeRef *node;
     const VSVideoInfo *vi;
     float threshold;
 } ccdData;
 
-static void ccd_run(const VSFrameRef *src, VSFrameRef *dest, float threshold, const VSAPI *vsapi)
-{
+static void ccd_run(const VSFrameRef *src, VSFrameRef *dest, float threshold, const VSAPI *vsapi) {
     int width = vsapi->getFrameWidth(src, 0);
     int height = vsapi->getFrameHeight(src, 0);
 
@@ -26,13 +25,11 @@ static void ccd_run(const VSFrameRef *src, VSFrameRef *dest, float threshold, co
     auto *dst_g_plane = reinterpret_cast<float *>(vsapi->getWritePtr(dest, 1));
     auto *dst_b_plane = reinterpret_cast<float *>(vsapi->getWritePtr(dest, 2));
 
-    for (int y = 0; y < height; y++)
-    {
+    for (int y = 0; y < height; y++) {
         int y_start = y > 11 ? y - 12 : y;
         int y_end = y < height - 12 ? y + 12 : y;
 
-        for (int x = 0; x < width; x++)
-        {
+        for (int x = 0; x < width; x++) {
             int i = y * width + x;
 
             float r = src_r_plane[i], g = src_g_plane[i], b = src_b_plane[i];
@@ -42,11 +39,9 @@ static void ccd_run(const VSFrameRef *src, VSFrameRef *dest, float threshold, co
             int x_start = x > 11 ? x - 12 : x;
             int x_end = x < width - 12 ? x + 12 : x;
 
-            for (int comp_y = y_start; comp_y < y_end; comp_y += 8)
-            {
+            for (int comp_y = y_start; comp_y < y_end; comp_y += 8) {
                 int y_offset = comp_y * width;
-                for (int comp_x = x_start; comp_x < x_end; comp_x += 8)
-                {
+                for (int comp_x = x_start; comp_x < x_end; comp_x += 8) {
                     float comp_r = src_r_plane[y_offset + comp_x];
                     float comp_g = src_g_plane[y_offset + comp_x];
                     float comp_b = src_b_plane[y_offset + comp_x];
@@ -56,8 +51,7 @@ static void ccd_run(const VSFrameRef *src, VSFrameRef *dest, float threshold, co
                     float diff_b = comp_b - b;
 
 #define SQUARE(x) (x * x)
-                    if (threshold > (SQUARE(diff_r) + SQUARE(diff_g) + SQUARE(diff_b)))
-                    {
+                    if (threshold > (SQUARE(diff_r) + SQUARE(diff_g) + SQUARE(diff_b))) {
                         total_r += comp_r;
                         total_b += comp_b;
                         total_g += comp_g;
@@ -93,30 +87,25 @@ static void ccd_run(const VSFrameRef *src, VSFrameRef *dest, float threshold, co
     }
 }
 
-static void VS_CC ccdInit(VSMap *in, VSMap *out, void **instanceData, VSNode *node, VSCore *core, const VSAPI *vsapi)
-{
-    (void)in;
-    (void)out;
-    (void)core;
+static void VS_CC ccdInit(VSMap *in, VSMap *out, void **instanceData, VSNode *node, VSCore *core, const VSAPI *vsapi) {
+    (void) in;
+    (void) out;
+    (void) core;
 
-    auto *d = (ccdData *)*instanceData;
+    auto *d = (ccdData *) *instanceData;
 
     vsapi->setVideoInfo(d->vi, 1, node);
 }
 
 static const VSFrameRef *
-    VS_CC
-    ccdGetframe(int n, int activationReason, void **instanceData, void **frameData, VSFrameContext *frameCtx,
-                VSCore *core, const VSAPI *vsapi)
-{
+VS_CC
+ccdGetframe(int n, int activationReason, void **instanceData, void **frameData, VSFrameContext *frameCtx,
+            VSCore *core, const VSAPI *vsapi) {
     auto *d = static_cast<ccdData *>(*instanceData);
 
-    if (activationReason == arInitial)
-    {
+    if (activationReason == arInitial) {
         vsapi->requestFrameFilter(n, d->node, frameCtx);
-    }
-    else if (activationReason == arAllFramesReady)
-    {
+    } else if (activationReason == arAllFramesReady) {
         const VSFrameRef *src = vsapi->getFrameFilter(n, d->node, frameCtx);
         const VSFormat *format = vsapi->getFrameFormat(src);
 
@@ -138,15 +127,13 @@ static const VSFrameRef *
     return nullptr;
 }
 
-static void VS_CC ccdFree(void *instanceData, VSCore *core, const VSAPI *vsapi)
-{
-    auto *d = (ccdData *)instanceData;
+static void VS_CC ccdFree(void *instanceData, VSCore *core, const VSAPI *vsapi) {
+    auto *d = (ccdData *) instanceData;
     vsapi->freeNode(d->node);
     free(d);
 }
 
-static void VS_CC ccdCreate(const VSMap *in, VSMap *out, void *userData, VSCore *core, const VSAPI *vsapi)
-{
+static void VS_CC ccdCreate(const VSMap *in, VSMap *out, void *userData, VSCore *core, const VSAPI *vsapi) {
     ccdData d;
     ccdData *data;
     int err;
@@ -159,25 +146,22 @@ static void VS_CC ccdCreate(const VSMap *in, VSMap *out, void *userData, VSCore 
 
     d.vi = vsapi->getVideoInfo(d.node);
 
-    if (!d.vi->format)
-    {
+    if (!d.vi->format) {
         vsapi->setError(out, "CCD: Variable format clips are not supported.");
         vsapi->freeNode(d.node);
     }
 
-    if (d.vi->format->id != 2000015)
-    { // ID of RGBS
+    if (d.vi->format->id != 2000015) { // ID of RGBS
         vsapi->setError(out, "CCD: Input clip must be RGBS");
         vsapi->freeNode(d.node);
     }
 
-    if (d.threshold < 0)
-    {
+    if (d.threshold < 0) {
         vsapi->setError(out, "CCD: Threshold must be >= 0");
         vsapi->freeNode(d.node);
     }
 
-    data = (ccdData *)malloc(sizeof(d));
+    data = (ccdData *) malloc(sizeof(d));
     *data = d;
 
     vsapi->createFilter(in, out, "ccd", ccdInit, ccdGetframe, ccdFree, fmParallel, 0, data, core);
@@ -185,8 +169,7 @@ static void VS_CC ccdCreate(const VSMap *in, VSMap *out, void *userData, VSCore 
 
 VS_EXTERNAL_API(void)
 VapourSynthPluginInit(VSConfigPlugin configFunc, VSRegisterFunction registerFunc,
-                      VSPlugin *plugin)
-{
+                      VSPlugin *plugin) {
     configFunc("com.eoe-scrad.ccd", "ccd", "chroma denoiser", VAPOURSYNTH_API_VERSION, 1, plugin);
     registerFunc("CCD",
                  "clip:clip;"
