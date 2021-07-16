@@ -1,0 +1,2 @@
+C:\CLion\mingw64\bin\ar.exe qc libccd.a CMakeFiles/ccd.dir/ccd.cpp.obj
+C:\CLion\mingw64\bin\ranlib.exe libccd.a

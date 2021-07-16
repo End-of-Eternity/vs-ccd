@@ -1,0 +1,22 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+C:/Users/Atharva/CLionProjects/ccd/ccd.cpp
+cstring
+-
+cstdint
+-
+cstdlib
+-
+cstring
+-
+VapourSynth.h
+-
+VSHelper.h
+-
+
