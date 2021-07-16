@@ -25,9 +25,6 @@ static void ccd_run(const VSFrameRef *src, VSFrameRef *dest, float threshold, co
     auto *dst_b_plane = reinterpret_cast<float *>(vsapi->getWritePtr(dest, 2));
 
     for (int y = 0; y < height; y++) {
-        int y_start = y > 11 ? y - 12 : y;
-        int y_end = y < height - 12 ? y + 12 : y;
-
         for (int x = 0; x < width; x++) {
             int i = y * width + x;
 
@@ -35,12 +32,22 @@ static void ccd_run(const VSFrameRef *src, VSFrameRef *dest, float threshold, co
             float total_r = r, total_g = g, total_b = b;
             int n = 0;
 
-            int x_start = x > 11 ? x - 12 : x;
-            int x_end = x < width - 12 ? x + 12 : x;
+            for (int dy = y - 12; dy < y + 12; dy += 8) {
+                int comp_y = dy;
+                if (comp_y < 0)
+                    comp_y = -comp_y;
+                else if (comp_y >= height)
+                    comp_y = 2 * (height - 1) - comp_y;
 
-            for (int comp_y = y_start; comp_y < y_end; comp_y += 8) {
                 int y_offset = comp_y * width;
-                for (int comp_x = x_start; comp_x < x_end; comp_x += 8) {
+                for (int dx = x - 12; dx < x + 12; dx += 8) {
+
+                    int comp_x = dx;
+                    if (comp_x < 0)
+                        comp_x = -comp_x;
+                    else if (comp_x >= width)
+                        comp_x = 2 * (width - 1) - comp_x;
+
                     float comp_r = src_r_plane[y_offset + comp_x];
                     float comp_g = src_g_plane[y_offset + comp_x];
                     float comp_b = src_b_plane[y_offset + comp_x];
@@ -49,7 +56,7 @@ static void ccd_run(const VSFrameRef *src, VSFrameRef *dest, float threshold, co
                     float diff_g = comp_g - g;
                     float diff_b = comp_b - b;
 
-#define SQUARE(x) (x * x)
+#define SQUARE(x) ((x) * (x))
                     if (threshold > (SQUARE(diff_r) + SQUARE(diff_g) + SQUARE(diff_b))) {
                         total_r += comp_r;
                         total_b += comp_b;
@@ -152,6 +159,11 @@ static void VS_CC ccdCreate(const VSMap *in, VSMap *out, void *userData, VSCore 
 
     if (d.vi->format->id != 2000015) { // ID of RGBS
         vsapi->setError(out, "CCD: Input clip must be RGBS");
+        vsapi->freeNode(d.node);
+    }
+
+    if (d.vi->width < 12 || d.vi->height < 12) {
+        vsapi->setError(out, "CCD: Input clip dimensions must be at least 12x12");
         vsapi->freeNode(d.node);
     }
 
