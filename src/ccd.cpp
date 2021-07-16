@@ -1,13 +1,10 @@
-#include <cstring>
-#include <cstdint>
 #include <cstdlib>
-#include <string>
 
 #include <VapourSynth.h>
 #include <VSHelper.h>
 
 // i dont know if there's a better way to do this :dek:
-static const float DIVISORS[] = {1., 1. / 2, 1. / 3, 1. / 4, 1. / 5, 1. / 6, 1. / 7, 1. / 8, 1. / 9, 1. / 10, 1. / 11, 1. / 12, 1. / 13, 1. / 14, 1. / 15, 1. / 16, 1. / 17, 1. / 18, 1. / 19, 1. / 20};
+static const double DIVISORS[] = {1., 1. / 2, 1. / 3, 1. / 4, 1. / 5, 1. / 6, 1. / 7, 1. / 8, 1. / 9, 1. / 10, 1. / 11, 1. / 12, 1. / 13, 1. / 14, 1. / 15, 1. / 16, 1. / 17, 1. / 18, 1. / 19, 1. / 20};
 
 typedef struct ccdData
 {
@@ -40,7 +37,7 @@ static void ccd_run(const VSFrameRef *src, VSFrameRef *dest, float threshold, co
 
             float r = src_r_plane[i], g = src_g_plane[i], b = src_b_plane[i];
             float total_r = r, total_g = g, total_b = b;
-            int n = 1;
+            int n = 0;
 
             int x_start = x > 11 ? x - 12 : x;
             int x_end = x < width - 12 ? x + 12 : x;
@@ -55,8 +52,8 @@ static void ccd_run(const VSFrameRef *src, VSFrameRef *dest, float threshold, co
                     float comp_b = src_b_plane[y_offset + comp_x];
 
                     float diff_r = comp_r - r;
-                    float diff_g = comp_g - r;
-                    float diff_b = comp_b - r;
+                    float diff_g = comp_g - g;
+                    float diff_b = comp_b - b;
 
 #define SQUARE(x) (x * x)
                     if (threshold > (SQUARE(diff_r) + SQUARE(diff_g) + SQUARE(diff_b)))
@@ -133,6 +130,8 @@ static const VSFrameRef *
 
         ccd_run(src, dest, d->threshold, vsapi);
 
+        vsapi->freeFrame(src);
+
         return dest;
     }
 
@@ -156,6 +155,7 @@ static void VS_CC ccdCreate(const VSMap *in, VSMap *out, void *userData, VSCore 
     d.threshold = static_cast<float>(vsapi->propGetFloat(in, "threshold", 0, &err));
     if (err)
         d.threshold = 4;
+    d.threshold = d.threshold * d.threshold / 195075.0; // the magic number
 
     d.vi = vsapi->getVideoInfo(d.node);
 
