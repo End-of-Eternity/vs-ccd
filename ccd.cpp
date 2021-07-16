@@ -31,7 +31,7 @@ VS_CC ccdGetframe(int n, int activationReason, void **instanceData, void **frame
         vsapi->requestFrameFilter(n, d->node, frameCtx);
     } else if (activationReason == arAllFramesReady) {
         const VSFrameRef *src = vsapi->getFrameFilter(n, d->node, frameCtx);
-        // actual shit will go here
+        // stuff to do
 
         return src;
     }
@@ -53,7 +53,7 @@ static void VS_CC ccdCreate(const VSMap *in, VSMap *out, void *userData, VSCore 
     int err;
 
     d.node = vsapi->propGetNode(in, "clip", 0, nullptr);
-    auto threshold = static_cast<float>(vsapi->propGetFloat(in, "threshold", 1, &err));//
+    auto threshold = static_cast<float>(vsapi->propGetFloat(in, "threshold", 1, &err));
     if (err)
         threshold = 4;
 
@@ -72,7 +72,7 @@ static void VS_CC ccdCreate(const VSMap *in, VSMap *out, void *userData, VSCore 
     }
 
     if (d.vi->format->id != 2000015) {  // ID of RGBS
-        vsapi->setError(out, "CCD: Input clip must be RGBS");  //cool yea that works, yee, can make a wrapper later
+        vsapi->setError(out, "CCD: Input clip must be RGBS");
         vsapi->freeNode(d.node);
     }
 
