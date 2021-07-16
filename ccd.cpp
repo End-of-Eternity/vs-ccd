@@ -59,7 +59,7 @@ static void VS_CC ccdCreate(const VSMap *in, VSMap *out, void *userData, VSCore 
 
     if (threshold < 0) {
         vsapi->setError(out, "CCD: Threshold must be >= 0");
-        vsapi->freeNode(d.node);//build?
+        vsapi->freeNode(d.node);
     }
 
     d.threshold = threshold;
