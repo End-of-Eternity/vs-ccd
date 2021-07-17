@@ -2,6 +2,7 @@
  *  CCD - Camcorder Color Denoise v0.1
  *
  *  Copyright (c) 2006-2020 Stolyarevskiy Sergey
+ *  Copyright (c) 2020 DomBito
  *  Copyright (c) 2021 Arjun Raj (End of Eternity)
  *  Copyright (c) 2021 Atharva (Scrad)
  *
@@ -157,7 +158,7 @@ static void VS_CC ccdCreate(const VSMap *in, VSMap *out, void *userData, VSCore 
     d.threshold = static_cast<float>(vsapi->propGetFloat(in, "threshold", 0, &err));
     if (err)
         d.threshold = 4;
-    d.threshold = d.threshold * d.threshold / 195075.0; // the magic number
+    d.threshold = d.threshold * d.threshold / 195075.0; // the magic number - thanks DomBito
 
     d.vi = vsapi->getVideoInfo(d.node);
 
