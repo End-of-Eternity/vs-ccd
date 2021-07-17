@@ -9,6 +9,9 @@
  *  This project is licensed under the GPL v3 License.
  **/
 #include <cstdlib>
+#include <vector>
+#include <algorithm>
+#include <random>
 
 #include <VapourSynth.h>
 #include <VSHelper.h>
@@ -29,6 +32,11 @@ typedef struct ccdData {
     float threshold;
 } ccdData;
 
+struct offset {
+    int x;
+    int y;
+};
+
 static void ccd_run(const VSFrameRef *src, VSFrameRef *dest, float threshold, const VSAPI *vsapi) {
     int width = vsapi->getFrameWidth(src, 0);
     int height = vsapi->getFrameHeight(src, 0);
@@ -41,6 +49,20 @@ static void ccd_run(const VSFrameRef *src, VSFrameRef *dest, float threshold, co
     auto *dst_g_plane = reinterpret_cast<float *>(vsapi->getWritePtr(dest, 1));
     auto *dst_b_plane = reinterpret_cast<float *>(vsapi->getWritePtr(dest, 2));
 
+    // offsets for getting vector locations
+    std::vector<offset> offsets;
+
+    for (int y = -12; y <= 12; y++) {
+        for (int x = -12; x <= 12; x++) {
+            offset cur_offset;
+            cur_offset.x = x;
+            cur_offset.y = y;
+            offsets.push_back(cur_offset);
+        }
+    }
+
+    auto rng = std::minstd_rand {};
+
     for (int y = 0; y < height; y++) {
         for (int x = 0; x < width; x++) {
             int i = y * width + x;
@@ -49,39 +71,37 @@ static void ccd_run(const VSFrameRef *src, VSFrameRef *dest, float threshold, co
             float total_r = r, total_g = g, total_b = b;
             int n = 0;
 
-            for (int dy = y - 12; dy < y + 12; dy += 8) {
-                int comp_y = dy;
+            std::shuffle(offsets.begin(), offsets.end(), rng);
+
+            for (auto const& off : offsets) {
+                int comp_y = off.y + y;
                 if (comp_y < 0)
                     comp_y = -comp_y;
-                else if (comp_y >= height)
-                    comp_y = 2 * (height - 1) - comp_y;
+                else if (comp_y >= width)
+                    comp_y = 2 * (width - 1) - comp_y;
 
-                int y_offset = comp_y * width;
-                for (int dx = x - 12; dx < x + 12; dx += 8) {
+                int comp_x = off.x + x;
+                if (comp_x < 0)
+                    comp_x = -comp_x;
+                else if (comp_x >= width)
+                    comp_x = 2 * (width - 1) - comp_x;
 
-                    int comp_x = dx;
-                    if (comp_x < 0)
-                        comp_x = -comp_x;
-                    else if (comp_x >= width)
-                        comp_x = 2 * (width - 1) - comp_x;
+                float comp_r = src_r_plane[(y * width) + comp_x];
+                float comp_g = src_g_plane[(y * width) + comp_x];
+                float comp_b = src_b_plane[(y * width) + comp_x];
 
-                    float comp_r = src_r_plane[y_offset + comp_x];
-                    float comp_g = src_g_plane[y_offset + comp_x];
-                    float comp_b = src_b_plane[y_offset + comp_x];
-
-                    float diff_r = comp_r - r;
-                    float diff_g = comp_g - g;
-                    float diff_b = comp_b - b;
+                float diff_r = comp_r - r;
+                float diff_g = comp_g - g;
+                float diff_b = comp_b - b;
 
 #define SQUARE(x) ((x) * (x))
-                    if (threshold > (SQUARE(diff_r) + SQUARE(diff_g) + SQUARE(diff_b))) {
-                        total_r += comp_r;
-                        total_b += comp_b;
-                        total_g += comp_g;
-                        n++;
-                    }
-#undef SQUARE
+                if (threshold > (SQUARE(diff_r) + SQUARE(diff_g) + SQUARE(diff_b))) {
+                    total_r += comp_r;
+                    total_b += comp_b;
+                    total_g += comp_g;
+                    n++;
                 }
+#undef SQUARE
             }
 
             float calculated_r = total_r * MULTIPLIERS[n];
