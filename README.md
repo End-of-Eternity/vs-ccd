@@ -7,7 +7,7 @@ to YUV / YCoCg, and the luma channel should be copied from the input.
 Currently, CCD only supports RGBS input and will not copy the original luma for you, so for
 convinience, a python wrapper is included which can handle this.
 
-Vapoursynth port of the original filter by [https://web.archive.org/web/20210116182527/http://acobw.narod.ru/](Sergey Stolyarevsky)
+Vapoursynth port of the original filter by [Sergey Stolyarevsky](https://web.archive.org/web/20210116182527/http://acobw.narod.ru/).
 
 ## Usage
 
@@ -26,13 +26,13 @@ _Parameters_
 
 - threshold: Euclidian distance threshold for including pixel in the matrix. Higher values = more denoising. A good range seems to be 4-10.
 
-- matrix: Colour matrix for the wrapper to use for conversions to and from YUV/RGB. Will be guessed by the wrapper if left unspecified from frame props or frame size. Values are the same as Vapoursynth's [http://www.vapoursynth.com/doc/functions/resize.html](resize)
+- matrix: Colour matrix for the wrapper to use for conversions to and from YUV/RGB. Will be guessed by the wrapper if left unspecified from frame props or frame size. Values are the same as Vapoursynth's [resize](http://www.vapoursynth.com/doc/functions/resize.html).
 
 
 ## How to install
 
 If you're on Windows - congratulations! Just download the binary and wrapper from the
-[https://github.com/End-of-Eternity/vs-ccd/releases](releases page), and drop them into their
+[releases page](https://github.com/End-of-Eternity/vs-ccd/releases), and drop them into their
 usual places.
 
 If you're a linux weirdo, then see the compilation instructions for the plugin below.
