@@ -1,7 +1,7 @@
 # CCD - Camcorder Color Denoise
 
 CCD is a simple chroma denoiser. It works by selectively averaging pixels in a 25x25 matrix below
-the Euclidian distance threshold in an RGB clip. After denoising, the clip should be converted back
+the Euclidean distance threshold in an RGB clip. After denoising, the clip should be converted back
 to YUV / YCoCg, and the luma channel should be copied from the input.
 
 Currently, CCD only supports RGBS input and will not copy the original luma for you, so for
@@ -24,7 +24,7 @@ _Parameters_
 
 - clip: Input clip. Plugin only supports RGBS, wrapper accepts any format except Gray and Compat.
 
-- threshold: Euclidian distance threshold for including pixel in the matrix. Higher values = more denoising. A good range seems to be 4-10.
+- threshold: Euclidean distance threshold for including pixel in the matrix. Higher values = more denoising. A good range seems to be 4-10.
 
 - matrix: Colour matrix for the wrapper to use for conversions to and from YUV/RGB. Will be guessed by the wrapper if left unspecified from frame props or frame size. Values are the same as Vapoursynth's [resize](http://www.vapoursynth.com/doc/functions/resize.html).
 
