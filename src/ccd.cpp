@@ -1,3 +1,12 @@
+/**
+ *  CCD - Camcorder Color Denoise v0.1
+ *
+ *  Copyright (c) 2006-2020 Stolyarevskiy Sergey
+ *  Copyright (c) 2021 Arjun Raj (End of Eternity)
+ *  Copyright (c) 2021 Atharva (Scrad)
+ *
+ *  This project is licensed under the GPL v3 License.
+ **/
 #include <cstdlib>
 
 #include <VapourSynth.h>
