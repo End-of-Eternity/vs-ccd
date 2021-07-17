@@ -13,8 +13,15 @@
 #include <VapourSynth.h>
 #include <VSHelper.h>
 
-static const double DIVISORS[] = {1., 1. / 2, 1. / 3, 1. / 4, 1. / 5, 1. / 6, 1. / 7, 1. / 8, 1. / 9, 1. / 10, 1. / 11,
-                                  1. / 12, 1. / 13, 1. / 14, 1. / 15, 1. / 16, 1. / 17, 1. / 18, 1. / 19, 1. / 20};
+static const double *init_multipliers() {
+    const int n = 20; // number of multipliers
+    static double mutlipliers[n];
+    for (int i=0; i<n; i++)
+        mutlipliers[i] = 1. / (i+1);
+    return mutlipliers;
+}
+
+static const double *MULTIPLIERS = init_multipliers();
 
 typedef struct ccdData {
     VSNodeRef *node;
@@ -77,9 +84,9 @@ static void ccd_run(const VSFrameRef *src, VSFrameRef *dest, float threshold, co
                 }
             }
 
-            float calculated_r = total_r * DIVISORS[n];
-            float calculated_g = total_g * DIVISORS[n];
-            float calculated_b = total_b * DIVISORS[n];
+            float calculated_r = total_r * MULTIPLIERS[n];
+            float calculated_g = total_g * MULTIPLIERS[n];
+            float calculated_b = total_b * MULTIPLIERS[n];
 
             if (calculated_r < 0)
                 calculated_r = 0;
