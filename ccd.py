@@ -47,11 +47,11 @@ def ccd(clip: vs.VideoNode, threshold: float = 4, matrix: Optional[str] = None) 
     if format.color_family != vs.RGB:
         if clip.format.subsampling_h or clip.format.subsampling_w:
             luma = core.std.ShufflePlanes(clip, 0, vs.GRAY)
-            luma = core.resize.Bicubic(luma, cwidth, cheight)
+            # luma = core.resize.Bicubic(luma, cwidth, cheight)
             rgb_in = core.std.ShufflePlanes([luma, clip], [0, 1, 2], format.color_family)
         else:
             rgb_in = clip
-        rgb = core.resize.Bicubic(rgb_in, cwidth, cheight, format=vs.RGBS, matrix_in_s=matrix)
+        rgb = core.resize.Bicubic(rgb_in, format=vs.RGBS, matrix_in_s=matrix)
     elif format.sample_type != vs.FLOAT and format.bits_per_sample != 32:
         rgb = core.resize.Point(clip, format=vs.RGBS)
     else:
