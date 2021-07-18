@@ -13,7 +13,7 @@
 #include <VapourSynth.h>
 #include <VSHelper.h>
 
-static const double *init_multipliers() {
+const double *init_multipliers() {
     const int n = 20; // number of multipliers
     static double mutlipliers[n];
     for (int i=0; i<n; i++)
@@ -21,15 +21,26 @@ static const double *init_multipliers() {
     return mutlipliers;
 }
 
-static const double *MULTIPLIERS = init_multipliers();
+// calculate 1/n at compile time for averages - faster than dividing at runtime
+const double *MULTIPLIERS = init_multipliers();
 
 typedef struct ccdData {
     VSNodeRef *node;
     const VSVideoInfo *vi;
-    float threshold;
+    float threshold;                  // Euclidean distance threshold to be included in average
+    int matrix_width, matrix_height;  // dimensions of the search matrix /2
+    int offset_width, offset_height;  // offset between samples
 } ccdData;
 
-static void ccd_run(const VSFrameRef *src, VSFrameRef *dest, float threshold, const VSAPI *vsapi) {
+// edge handling
+int reflect_oob(int x, int upper) {
+    if (x >= upper)
+        return 2 * (upper - 1) - x;
+    else
+        return std::abs(x);
+}
+
+void ccd_run(const VSFrameRef *src, VSFrameRef *dest, ccdData *d, const VSAPI *vsapi) {
     int width = vsapi->getFrameWidth(src, 0);
     int height = vsapi->getFrameHeight(src, 0);
 
@@ -43,28 +54,21 @@ static void ccd_run(const VSFrameRef *src, VSFrameRef *dest, float threshold, co
 
     for (int y = 0; y < height; y++) {
         for (int x = 0; x < width; x++) {
-            int i = y * width + x;
+            int i = y * width + x; // index of this (x, y) pixel
 
             float r = src_r_plane[i], g = src_g_plane[i], b = src_b_plane[i];
             float total_r = r, total_g = g, total_b = b;
             int n = 0;
 
-            for (int dy = y - 12; dy <= y + 12; dy += 8) {
-                int comp_y = dy;
-                if (comp_y < 0)
-                    comp_y = -comp_y;
-                else if (comp_y >= height)
-                    comp_y = 2 * (height - 1) - comp_y;
+            // iterate over matrix around current pixel
+            for (int dy = y - d->matrix_height; dy <= y + d->matrix_height; dy += d->offset_height) {
+                int comp_y = reflect_oob(y, height);
 
                 int y_offset = comp_y * width;
-                for (int dx = x - 12; dx <= x + 12; dx += 8) {
+                for (int dx = x - d->matrix_width; dx <= x + d->matrix_width; dx += d->offset_width) {
+                    int comp_x = reflect_oob(x, width);
 
-                    int comp_x = dx;
-                    if (comp_x < 0)
-                        comp_x = -comp_x;
-                    else if (comp_x >= width)
-                        comp_x = 2 * (width - 1) - comp_x;
-
+                    // current comparison pixel
                     float comp_r = src_r_plane[y_offset + comp_x];
                     float comp_g = src_g_plane[y_offset + comp_x];
                     float comp_b = src_b_plane[y_offset + comp_x];
@@ -74,7 +78,8 @@ static void ccd_run(const VSFrameRef *src, VSFrameRef *dest, float threshold, co
                     float diff_b = comp_b - b;
 
 #define SQUARE(x) ((x) * (x))
-                    if (threshold > (SQUARE(diff_r) + SQUARE(diff_g) + SQUARE(diff_b))) {
+                    // is Euclidean distance below threshold?
+                    if (d->threshold > (SQUARE(diff_r) + SQUARE(diff_g) + SQUARE(diff_b))) {
                         total_r += comp_r;
                         total_b += comp_b;
                         total_g += comp_g;
@@ -84,28 +89,12 @@ static void ccd_run(const VSFrameRef *src, VSFrameRef *dest, float threshold, co
                 }
             }
 
-            float calculated_r = total_r * MULTIPLIERS[n];
-            float calculated_g = total_g * MULTIPLIERS[n];
-            float calculated_b = total_b * MULTIPLIERS[n];
-
-            if (calculated_r < 0)
-                calculated_r = 0;
-            else if (calculated_r > 1)
-                calculated_r = 1;
-
-            if (calculated_g < 0)
-                calculated_g = 0;
-            else if (calculated_g > 1)
-                calculated_g = 1;
-
-            if (calculated_b < 0)
-                calculated_b = 0;
-            else if (calculated_b > 1)
-                calculated_b = 1;
-
-            dst_r_plane[i] = calculated_r;
-            dst_g_plane[i] = calculated_g;
-            dst_b_plane[i] = calculated_b;
+            // assuming the user passes legal float values (0-1), then the output should always
+            // be between 0 and 1. Therefore, to save a few extra if statements, I'm just not going
+            // to bother clamping the value to the legal range.
+            dst_r_plane[i] = total_r * MULTIPLIERS[n];
+            dst_g_plane[i] = total_g * MULTIPLIERS[n];
+            dst_b_plane[i] = total_b * MULTIPLIERS[n];
         }
     }
 }
@@ -140,7 +129,7 @@ ccdGetframe(int n, int activationReason, void **instanceData, void **frameData, 
 
         VSFrameRef *dest = vsapi->newVideoFrame2(format, width, height, plane_src, planes, src, core);
 
-        ccd_run(src, dest, d->threshold, vsapi);
+        ccd_run(src, dest, d, vsapi);
 
         vsapi->freeFrame(src);
 
@@ -167,6 +156,24 @@ static void VS_CC ccdCreate(const VSMap *in, VSMap *out, void *userData, VSCore 
         d.threshold = 4;
     d.threshold = d.threshold * d.threshold / 195075.0; // the magic number - thanks DomBito
 
+    d.matrix_width = vsapi->propGetFloat(in, "matrix_size", 0, &err);
+    if (err)
+        d.matrix_width = d.matrix_height = 12;
+    else {
+        d.matrix_height = vsapi->propGetFloat(in, "matrix_size", 1, &err);
+        if (err)
+            d.matrix_height = d.matrix_width;
+    }
+
+    d.offset_width = vsapi->propGetFloat(in, "offset_size", 0, &err);
+    if (err)
+        d.offset_width = d.offset_height = 12;
+    else {
+        d.offset_height = vsapi->propGetFloat(in, "offset_size", 1, &err);
+        if (err)
+            d.offset_height = d.offset_width;
+    }
+
     d.vi = vsapi->getVideoInfo(d.node);
 
     if (!d.vi->format) {
@@ -189,7 +196,22 @@ static void VS_CC ccdCreate(const VSMap *in, VSMap *out, void *userData, VSCore 
         vsapi->freeNode(d.node);
     }
 
-    data = (ccdData *) malloc(sizeof(d));
+    // i hate this
+    if (d.matrix_width < 3 || d.matrix_height < 3 || !(d.matrix_width & 1) || !(d.matrix_height & 1) || d.matrix_width > d.vi->width || d.matrix_height > d.vi->height) {
+        vsapi->setError(out, "CCD: Matrix dimensions must be odd and between 3 and the dimensions of your clip");
+        vsapi->freeNode(d.node);
+    }
+
+    if (d.offset_height % (d.matrix_width - 1) || d.offset_height % (d.matrix_width - 1)) {
+        vsapi->setError(out, "CCD: Offsets must evenly divide into matrix - 1");
+        vsapi->freeNode(d.node);
+    }
+
+    // ccd_run() expects offsets from central pixel, not full lengths
+    d.matrix_width >>= 1;
+    d.matrix_height >>= 1;
+
+    data = reinterpret_cast<ccdData *>(malloc(sizeof(d)));
     *data = d;
 
     vsapi->createFilter(in, out, "ccd", ccdInit, ccdGetframe, ccdFree, fmParallel, 0, data, core);
@@ -201,6 +223,8 @@ VapourSynthPluginInit(VSConfigPlugin configFunc, VSRegisterFunction registerFunc
     configFunc("com.eoe-scrad.ccd", "ccd", "chroma denoiser", VAPOURSYNTH_API_VERSION, 1, plugin);
     registerFunc("CCD",
                  "clip:clip;"
-                 "threshold:float:opt;",
+                 "threshold:float:opt;"
+                 "matrix_size:int[]:opt;"
+                 "offset_size:int[]:opt;",
                  ccdCreate, nullptr, plugin);
 }
