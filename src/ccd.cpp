@@ -49,7 +49,7 @@ static void ccd_run(const VSFrameRef *src, VSFrameRef *dest, float threshold, co
             float total_r = r, total_g = g, total_b = b;
             int n = 0;
 
-            for (int dy = y - 12; dy < y + 12; dy += 8) {
+            for (int dy = y - 12; dy <= y + 12; dy += 8) {
                 int comp_y = dy;
                 if (comp_y < 0)
                     comp_y = -comp_y;
@@ -57,7 +57,7 @@ static void ccd_run(const VSFrameRef *src, VSFrameRef *dest, float threshold, co
                     comp_y = 2 * (height - 1) - comp_y;
 
                 int y_offset = comp_y * width;
-                for (int dx = x - 12; dx < x + 12; dx += 8) {
+                for (int dx = x - 12; dx <= x + 12; dx += 8) {
 
                     int comp_x = dx;
                     if (comp_x < 0)
