@@ -32,7 +32,7 @@ typedef struct ccdData {
     float threshold;
 } ccdData;
 
-struct offset {
+struct location {
     int x;
     int y;
 };
@@ -50,11 +50,11 @@ static void ccd_run(const VSFrameRef *src, VSFrameRef *dest, float threshold, co
     auto *dst_b_plane = reinterpret_cast<float *>(vsapi->getWritePtr(dest, 2));
 
     // offsets for getting vector locations
-    std::vector<offset> offsets;
+    std::vector<location> offsets;
 
     for (int y = -12; y <= 12; y++) {
         for (int x = -12; x <= 12; x++) {
-            offset cur_offset;
+            location cur_offset;
             cur_offset.x = x;
             cur_offset.y = y;
             offsets.push_back(cur_offset);
@@ -65,30 +65,31 @@ static void ccd_run(const VSFrameRef *src, VSFrameRef *dest, float threshold, co
 
     for (int y = 0; y < height; y++) {
         for (int x = 0; x < width; x++) {
-            int i = y * width + x;
+            int index = y * width + x;
 
-            float r = src_r_plane[i], g = src_g_plane[i], b = src_b_plane[i];
+            float r = src_r_plane[index], g = src_g_plane[index], b = src_b_plane[index];
             float total_r = r, total_g = g, total_b = b;
             int n = 0;
 
             std::shuffle(offsets.begin(), offsets.end(), rng);
 
-            for (auto const& off : offsets) {
-                int comp_y = off.y + y;
+            for (std::vector<location>::size_type offset_index = 0; offset_index < 12; index++) {
+                const location offset = offsets[offset_index];
+                int comp_y = offset.y + y;
                 if (comp_y < 0)
                     comp_y = -comp_y;
                 else if (comp_y >= width)
                     comp_y = 2 * (width - 1) - comp_y;
 
-                int comp_x = off.x + x;
+                int comp_x = offset.x + x;
                 if (comp_x < 0)
                     comp_x = -comp_x;
                 else if (comp_x >= width)
                     comp_x = 2 * (width - 1) - comp_x;
 
-                float comp_r = src_r_plane[(y * width) + comp_x];
-                float comp_g = src_g_plane[(y * width) + comp_x];
-                float comp_b = src_b_plane[(y * width) + comp_x];
+                float comp_r = src_r_plane[(comp_y * width) + comp_x];
+                float comp_g = src_g_plane[(comp_y * width) + comp_x];
+                float comp_b = src_b_plane[(comp_y * width) + comp_x];
 
                 float diff_r = comp_r - r;
                 float diff_g = comp_g - g;
@@ -123,9 +124,9 @@ static void ccd_run(const VSFrameRef *src, VSFrameRef *dest, float threshold, co
             else if (calculated_b > 1)
                 calculated_b = 1;
 
-            dst_r_plane[i] = calculated_r;
-            dst_g_plane[i] = calculated_g;
-            dst_b_plane[i] = calculated_b;
+            dst_r_plane[index] = calculated_r;
+            dst_g_plane[index] = calculated_g;
+            dst_b_plane[index] = calculated_b;
         }
     }
 }
