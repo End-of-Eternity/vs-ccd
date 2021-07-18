@@ -62,6 +62,7 @@ def ccd(clip: vs.VideoNode, threshold: float = 4, matrix: Optional[str] = None) 
     if format.color_family != vs.RGB:
         denoised = core.resize.Bicubic(denoised, format=format, matrix_s=matrix)
         out = core.std.ShufflePlanes([clip, denoised], [0, 1, 2], format.color_family)
+        out = core.resize.Bicubic(out, format=clip.format)
     else:
         denoised = core.resize.Point(denoised, format=format.replace(color_family=vs.YUV), matrix_s=matrix)
         yuv = core.resize.Point(clip, format=format.replace(color_family=vs.GRAY), matrix_s=matrix)
