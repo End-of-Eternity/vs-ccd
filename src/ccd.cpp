@@ -154,7 +154,7 @@ static void VS_CC ccdCreate(const VSMap *in, VSMap *out, void *userData,
     d->node = vsapi->mapGetNode(in, "clip", 0, nullptr);
     d->threshold = static_cast<float>(vsapi->mapGetFloat(in, "threshold", 0, &err));
     if (err) d->threshold = 4;
-    d->threshold = d->threshold * d->threshold / 195075.0; // the magic number - thanks DomBito
+    d->threshold = d->threshold * d->threshold / 195075.0f; // the magic number - thanks DomBito
 
     const VSVideoInfo *vi = vsapi->getVideoInfo(d->node);
 
@@ -162,21 +162,22 @@ static void VS_CC ccdCreate(const VSMap *in, VSMap *out, void *userData,
         vi->format.colorFamily != cfRGB || vi->format.subSamplingH != 0 ||
         vi->format.subSamplingW != 0) {
         vsapi->mapSetError(out, "CCD: Input clip must be RGBS");
-        vsapi->freeNode(d->node);
+        return;
     }
 
     if (vi->width < 12 || vi->height < 12) {
         vsapi->mapSetError(out, "CCD: Input clip dimensions must be at least 12x12");
-        vsapi->freeNode(d->node);
+        return;
     }
 
     if (d->threshold < 0) {
         vsapi->mapSetError(out, "CCD: Threshold must be >= 0");
-        vsapi->freeNode(d->node);
+        return;
     }
 
+    VSFilterDependency deps[] = {{d->node, rpGeneral}};
     vsapi->createVideoFilter(out, "ccd", vi, ccdGetframe, ccdFree,
-                             fmParallel, 0, 0, d.get(), core);
+                             fmParallel, deps, 1, d.get(), core);
     d.release();
 }
 
