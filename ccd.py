@@ -11,9 +11,6 @@ def ccd(clip: vs.VideoNode, threshold: float = 4, matrix: Optional[str] = None) 
     if None in [clip.width, clip.height]:
         raise ValueError("Variable resolutions are not supported.")
 
-    cwidth = clip.width >> clip.format.subsampling_w
-    cheight = clip.height >> clip.format.subsampling_h
-
     format = clip.format.replace(subsampling_w=0, subsampling_h=0)
 
     if matrix is None and format.color_family == vs.YUV:
@@ -33,10 +30,8 @@ def ccd(clip: vs.VideoNode, threshold: float = 4, matrix: Optional[str] = None) 
             }.get(matrix_prop)
             if matrix is None:
                 raise ValueError("Unrecognised _Matrix frame prop, please specify matrix manually.")
-    elif format.color_family == vs.YCOCG:
-        matrix = "ycocg"
-    elif format.color_family in [vs.GRAY or vs.COMPAT]:
-        raise ValueError("Only RGB, YUV and YCoCg input is supported.")
+    elif format.color_family is vs.GRAY:
+        raise ValueError("Only RGB and YUV input is supported.")
 
     if matrix is None or matrix == "unspec":
         if clip.width >= 1280 or clip.height >= 720:
