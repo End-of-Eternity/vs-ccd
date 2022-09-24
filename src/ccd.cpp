@@ -22,10 +22,22 @@ template <typename T> inline constexpr T square (T x) noexcept {
     return x * x;
 }
 
+// Maximum radius of the filter kernel in pixels (excluding the center)
+// Max kernel diameter is max_radius * 2 + 1
+constexpr auto max_radius = 12;
+static_assert (max_radius >= 0, "Kernel must be at least 1 pixel");
+
+// Minimum subsampling rate for the filter kernel, per dimension
+constexpr auto min_step = 8;
+static_assert (min_step >= 1, "1:1 sampling is a strict minimum");
+
+constexpr auto max_filter_samples = square(1 + max_radius * 2 / min_step);
+
 static const float *init_multipliers() {
-    const int n = 20; // number of multipliers
-    static float mutlipliers[n];
-    for (int i=0; i<n; i++)
+    // Builds the inverse reciprocal list. +1 in the length because index 0
+    // is the case where the center (reference) pixel is the only sample.
+    static float mutlipliers[max_filter_samples + 1];
+    for (int i=0; i<=max_filter_samples; i++)
         mutlipliers[i] = 1.f / float (i+1);
     return mutlipliers;
 }
@@ -61,6 +73,9 @@ static void ccdRun(const VSFrame *src, VSFrame *dest, float thr_sq, const VSAPI 
     const auto dst_g_stride = vsapi->getStride (dest, 1) >> datasz_log2;
     const auto dst_b_stride = vsapi->getStride (dest, 2) >> datasz_log2;
 
+    constexpr auto radius = max_radius;
+    constexpr auto step   = min_step;
+
     for (int y = 0; y < height; y++) {
         for (int x = 0; x < width; x++) {
             const auto i_r = y * src_r_stride + x;
@@ -75,7 +90,7 @@ static void ccdRun(const VSFrame *src, VSFrame *dest, float thr_sq, const VSAPI 
             float total_r = r, total_g = g, total_b = b;
             int n = 0;
 
-            for (int dy = y - 12; dy <= y + 12; dy += 8) {
+            for (int dy = y - radius; dy <= y + radius; dy += step) {
                 int comp_y = dy;
                 if (comp_y < 0)
                     comp_y = -comp_y;
@@ -85,7 +100,7 @@ static void ccdRun(const VSFrame *src, VSFrame *dest, float thr_sq, const VSAPI 
                 const auto y_ofs_r = comp_y * src_r_stride;
                 const auto y_ofs_g = comp_y * src_g_stride;
                 const auto y_ofs_b = comp_y * src_b_stride;
-                for (int dx = x - 12; dx <= x + 12; dx += 8) {
+                for (int dx = x - radius; dx <= x + radius; dx += step) {
 
                     int comp_x = dx;
                     if (comp_x < 0)
@@ -111,6 +126,7 @@ static void ccdRun(const VSFrame *src, VSFrame *dest, float thr_sq, const VSAPI 
                 }
             }
 
+            assert (n <= max_filter_samples);
             float calculated_r = total_r * MULTIPLIERS[n];
             float calculated_g = total_g * MULTIPLIERS[n];
             float calculated_b = total_b * MULTIPLIERS[n];
@@ -200,7 +216,7 @@ static void VS_CC ccdCreate(const VSMap *in, VSMap *out, void *userData,
         return;
     }
 
-    if (vi->width < 12 || vi->height < 12) {
+    if (vi->width < max_radius || vi->height < max_radius) {
         vsapi->mapSetError(out, "CCD: Input clip dimensions must be at least 12x12");
         return;
     }
