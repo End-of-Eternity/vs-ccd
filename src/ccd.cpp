@@ -9,6 +9,7 @@
  *  This project is licensed under the GPL v3 License.
  **/
 #include <memory>
+#include <cmath>
 
 #include <VapourSynth4.h>
 #include <VSHelper4.h>
@@ -162,7 +163,11 @@ static void VS_CC ccdCreate(const VSMap *in, VSMap *out, void *userData,
     d->node = vsapi->mapGetNode(in, "clip", 0, nullptr);
     d->threshold = static_cast<float>(vsapi->mapGetFloat(in, "threshold", 0, &err));
     if (err) d->threshold = 4;
-    d->threshold = d->threshold * d->threshold / 195075.0f; // the magic number - thanks DomBito
+    // The following calculation is equivalent to the orignal formula
+    // thr*thr/195075 but a bit more explicit.
+    // It is not known why the sqrt(3) factor has been introduced.
+    const auto scale = 255.f * sqrtf(3); // threshold unit is 1/scale-th of the data range [0 ; 1]
+    d->threshold = square(d->threshold / scale); // the magic number - thanks DomBito
 
     const VSVideoInfo *vi = vsapi->getVideoInfo(d->node);
 
