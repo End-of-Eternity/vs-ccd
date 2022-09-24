@@ -16,6 +16,10 @@
 // Convenient helper to declare unused function parameters
 template <typename... T> inline void unused (T &&...) noexcept {}
 
+template <typename T> inline constexpr T square (T x) noexcept {
+    return x * x;
+}
+
 static const float *init_multipliers() {
     const int n = 20; // number of multipliers
     static float mutlipliers[n];
@@ -75,14 +79,12 @@ static void ccdRun(const VSFrame *src, VSFrame *dest, float threshold, const VSA
                     float diff_g = comp_g - g;
                     float diff_b = comp_b - b;
 
-#define SQUARE(x) ((x) * (x))
-                    if (threshold > (SQUARE(diff_r) + SQUARE(diff_g) + SQUARE(diff_b))) {
+                    if (threshold > (square(diff_r) + square(diff_g) + square(diff_b))) {
                         total_r += comp_r;
                         total_b += comp_b;
                         total_g += comp_g;
                         n++;
                     }
-#undef SQUARE
                 }
             }
 
