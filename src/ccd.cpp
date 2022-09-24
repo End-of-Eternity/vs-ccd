@@ -33,10 +33,10 @@ static const float *MULTIPLIERS = init_multipliers();
 
 typedef struct ccdData {
     VSNode *node;
-    float threshold;
+    float thr_sq; // Scaled and squared threshold, for quick comparison with the L2 norm
 } ccdData;
 
-static void ccdRun(const VSFrame *src, VSFrame *dest, float threshold, const VSAPI *vsapi) {
+static void ccdRun(const VSFrame *src, VSFrame *dest, float thr_sq, const VSAPI *vsapi) {
     int width = vsapi->getFrameWidth(src, 0);
     int height = vsapi->getFrameHeight(src, 0);
 
@@ -80,7 +80,8 @@ static void ccdRun(const VSFrame *src, VSFrame *dest, float threshold, const VSA
                     float diff_g = comp_g - g;
                     float diff_b = comp_b - b;
 
-                    if (threshold > (square(diff_r) + square(diff_g) + square(diff_b))) {
+                    const auto l2norm_sq = square(diff_r) + square(diff_g) + square(diff_b);
+                    if (thr_sq > l2norm_sq) {
                         total_r += comp_r;
                         total_b += comp_b;
                         total_g += comp_g;
@@ -137,7 +138,7 @@ static const VSFrame *VS_CC ccdGetframe(int n, int activationReason,
 
         VSFrame *dest = vsapi->newVideoFrame2(format, width, height, plane_src, planes, src, core);
 
-        ccdRun(src, dest, d->threshold, vsapi);
+        ccdRun(src, dest, d->thr_sq, vsapi);
 
         vsapi->freeFrame(src);
 
@@ -161,13 +162,13 @@ static void VS_CC ccdCreate(const VSMap *in, VSMap *out, void *userData,
     int err;
 
     d->node = vsapi->mapGetNode(in, "clip", 0, nullptr);
-    d->threshold = static_cast<float>(vsapi->mapGetFloat(in, "threshold", 0, &err));
-    if (err) d->threshold = 4;
+    auto thr_user = static_cast<float>(vsapi->mapGetFloat(in, "threshold", 0, &err));
+    if (err) thr_user = 4;
     // The following calculation is equivalent to the orignal formula
     // thr*thr/195075 but a bit more explicit.
     // It is not known why the sqrt(3) factor has been introduced.
     const auto scale = 255.f * sqrtf(3); // threshold unit is 1/scale-th of the data range [0 ; 1]
-    d->threshold = square(d->threshold / scale); // the magic number - thanks DomBito
+    d->thr_sq = square(thr_user / scale); // the magic number - thanks DomBito
 
     const VSVideoInfo *vi = vsapi->getVideoInfo(d->node);
 
@@ -183,7 +184,7 @@ static void VS_CC ccdCreate(const VSMap *in, VSMap *out, void *userData,
         return;
     }
 
-    if (d->threshold < 0) {
+    if (thr_user < 0) {
         vsapi->mapSetError(out, "CCD: Threshold must be >= 0");
         return;
     }
