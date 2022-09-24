@@ -16,15 +16,15 @@
 // Convenient helper to declare unused function parameters
 template <typename... T> inline void unused (T &&...) noexcept {}
 
-static const double *init_multipliers() {
+static const float *init_multipliers() {
     const int n = 20; // number of multipliers
-    static double mutlipliers[n];
+    static float mutlipliers[n];
     for (int i=0; i<n; i++)
-        mutlipliers[i] = 1. / (i+1);
+        mutlipliers[i] = 1.f / float (i+1);
     return mutlipliers;
 }
 
-static const double *MULTIPLIERS = init_multipliers();
+static const float *MULTIPLIERS = init_multipliers();
 
 typedef struct ccdData {
     VSNode *node;
