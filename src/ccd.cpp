@@ -31,18 +31,21 @@ static_assert (max_radius >= 0, "Kernel must be at least 1 pixel");
 constexpr auto min_step = 8;
 static_assert (min_step >= 1, "1:1 sampling is a strict minimum");
 
-constexpr auto max_filter_samples = square(1 + max_radius * 2 / min_step);
+// Maximum number of pixels potentially included by the kernel
+constexpr auto max_kernel_samples = square(1 + max_radius * 2 / min_step);
 
-static const float *init_multipliers() {
-    // Builds the inverse reciprocal list. +1 in the length because index 0
-    // is the case where the center (reference) pixel is the only sample.
-    static float mutlipliers[max_filter_samples + 1];
-    for (int i=0; i<=max_filter_samples; i++)
-        mutlipliers[i] = 1.f / float (i+1);
-    return mutlipliers;
+// We always include the reference pixel in addition to the kernel scan
+constexpr auto max_weight = 1 + max_kernel_samples;
+
+static const float *init_reciprocal_table() {
+    // Builds the inverse reciprocal list
+    static float rcp_table[1 + max_weight] {};
+    for (int i=1; i<=max_weight; i++)
+        rcp_table[i] = 1.f / float (i);
+    return rcp_table;
 }
 
-static const float *MULTIPLIERS = init_multipliers();
+static const float *RCP_TABLE = init_reciprocal_table();
 
 typedef struct ccdData {
     VSNode *node;
@@ -88,7 +91,7 @@ static void ccdRun(const VSFrame *src, VSFrame *dest, float thr_sq, const VSAPI 
 
             float r = src_r_plane[i_r], g = src_g_plane[i_g], b = src_b_plane[i_b];
             float total_r = r, total_g = g, total_b = b;
-            int n = 0;
+            int n = 1; // Starts with the reference pixel
 
             for (int dy = y - radius; dy <= y + radius; dy += step) {
                 int comp_y = dy;
@@ -126,10 +129,10 @@ static void ccdRun(const VSFrame *src, VSFrame *dest, float thr_sq, const VSAPI 
                 }
             }
 
-            assert (n <= max_filter_samples);
-            float calculated_r = total_r * MULTIPLIERS[n];
-            float calculated_g = total_g * MULTIPLIERS[n];
-            float calculated_b = total_b * MULTIPLIERS[n];
+            assert (n <= max_weight);
+            float calculated_r = total_r * RCP_TABLE[n];
+            float calculated_g = total_g * RCP_TABLE[n];
+            float calculated_b = total_b * RCP_TABLE[n];
 
             if (calculated_r < 0)
                 calculated_r = 0;
