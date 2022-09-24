@@ -13,6 +13,9 @@
 #include <VapourSynth4.h>
 #include <VSHelper4.h>
 
+// Convenient helper to declare unused function parameters
+template <typename... T> inline void unused (T &&...) noexcept {}
+
 static const double *init_multipliers() {
     const int n = 20; // number of multipliers
     static double mutlipliers[n];
@@ -114,6 +117,7 @@ static const VSFrame *VS_CC ccdGetframe(int n, int activationReason,
                                         void **frameData,
                                         VSFrameContext *frameCtx,
                                         VSCore *core, const VSAPI *vsapi)  {
+    unused (frameData);
     auto *d = reinterpret_cast<ccdData *>(instanceData);
 
     if (activationReason == arInitial) {
@@ -141,6 +145,7 @@ static const VSFrame *VS_CC ccdGetframe(int n, int activationReason,
 }
 
 static void VS_CC ccdFree(void *instanceData, VSCore *core, const VSAPI *vsapi) {
+    unused (core);
     auto *d = reinterpret_cast<ccdData *>(instanceData);
     vsapi->freeNode(d->node);
     delete d;
@@ -148,6 +153,7 @@ static void VS_CC ccdFree(void *instanceData, VSCore *core, const VSAPI *vsapi) 
 
 static void VS_CC ccdCreate(const VSMap *in, VSMap *out, void *userData,
                             VSCore *core, const VSAPI *vsapi)  {
+    unused (userData);
     std::unique_ptr<ccdData> d(new ccdData());
     int err;
 
