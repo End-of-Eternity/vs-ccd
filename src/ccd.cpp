@@ -11,6 +11,7 @@
 #include <memory>
 #include <cassert>
 #include <cmath>
+#include <cstdlib>
 
 #include <VapourSynth4.h>
 #include <VSHelper4.h>
@@ -20,6 +21,22 @@ template <typename... T> inline void unused (T &&...) noexcept {}
 
 template <typename T> inline constexpr T square (T x) noexcept {
     return x * x;
+}
+
+template <typename T> inline constexpr T clip (T x, T mi, T ma) noexcept {
+#if (__cplusplus >= 201402L) // C++14 required here
+    assert (mi <= ma);
+#endif
+    return (x < mi) ? mi : (x > ma) ? ma : x;
+}
+
+// Wraps out-of-bound coordinates
+template <typename T> inline constexpr T wrap_oob_coord (T x, T w) noexcept {
+#if (__cplusplus >= 201402L) // C++14 required here
+   assert (w > 0);
+#endif
+   using std::abs;
+   return (x >= w) ? w * 2 - (x + 2) : abs (x);
 }
 
 // Maximum radius of the filter kernel in pixels (excluding the center)
@@ -94,22 +111,14 @@ static void ccdRun(const VSFrame *src, VSFrame *dest, float thr_sq, const VSAPI 
             int n = 1; // Starts with the reference pixel
 
             for (int dy = y - radius; dy <= y + radius; dy += step) {
-                int comp_y = dy;
-                if (comp_y < 0)
-                    comp_y = -comp_y;
-                else if (comp_y >= height)
-                    comp_y = 2 * (height - 1) - comp_y;
+                const auto comp_y = wrap_oob_coord (dy, height);
 
                 const auto y_ofs_r = comp_y * src_r_stride;
                 const auto y_ofs_g = comp_y * src_g_stride;
                 const auto y_ofs_b = comp_y * src_b_stride;
                 for (int dx = x - radius; dx <= x + radius; dx += step) {
 
-                    int comp_x = dx;
-                    if (comp_x < 0)
-                        comp_x = -comp_x;
-                    else if (comp_x >= width)
-                        comp_x = 2 * (width - 1) - comp_x;
+                    const auto comp_x = wrap_oob_coord (dx, width);
 
                     float comp_r = src_r_plane[y_ofs_r + comp_x];
                     float comp_g = src_g_plane[y_ofs_g + comp_x];
@@ -134,20 +143,12 @@ static void ccdRun(const VSFrame *src, VSFrame *dest, float thr_sq, const VSAPI 
             float calculated_g = total_g * RCP_TABLE[n];
             float calculated_b = total_b * RCP_TABLE[n];
 
-            if (calculated_r < 0)
-                calculated_r = 0;
-            else if (calculated_r > 1)
-                calculated_r = 1;
-
-            if (calculated_g < 0)
-                calculated_g = 0;
-            else if (calculated_g > 1)
-                calculated_g = 1;
-
-            if (calculated_b < 0)
-                calculated_b = 0;
-            else if (calculated_b > 1)
-                calculated_b = 1;
+            // Excepted for minor numerical errors (a few ULPs), the
+            // usefulness of these lines is not obvious. It could even be
+            // erroneous when input is out of the [0 ; 1] range (HDR content).
+            calculated_r = clip (calculated_r, 0.f, 1.f);
+            calculated_g = clip (calculated_g, 0.f, 1.f);
+            calculated_b = clip (calculated_b, 0.f, 1.f);
 
             dst_r_plane[o_r] = calculated_r;
             dst_g_plane[o_g] = calculated_g;
