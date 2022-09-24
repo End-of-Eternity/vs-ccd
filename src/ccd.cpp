@@ -9,6 +9,7 @@
  *  This project is licensed under the GPL v3 License.
  **/
 #include <memory>
+#include <cassert>
 #include <cmath>
 
 #include <VapourSynth4.h>
@@ -48,11 +49,29 @@ static void ccdRun(const VSFrame *src, VSFrame *dest, float thr_sq, const VSAPI 
     auto *dst_g_plane = reinterpret_cast<float *>(vsapi->getWritePtr(dest, 1));
     auto *dst_b_plane = reinterpret_cast<float *>(vsapi->getWritePtr(dest, 2));
 
+    constexpr auto datasz_log2 = 2; // log2 (data_size)
+    assert (vsapi->getVideoFrameFormat (src )->bytesPerSample == 1 << datasz_log2);
+    assert (vsapi->getVideoFrameFormat (dest)->bytesPerSample == 1 << datasz_log2);
+
+    const auto src_r_stride = vsapi->getStride (src, 0) >> datasz_log2;
+    const auto src_g_stride = vsapi->getStride (src, 1) >> datasz_log2;
+    const auto src_b_stride = vsapi->getStride (src, 2) >> datasz_log2;
+
+    const auto dst_r_stride = vsapi->getStride (dest, 0) >> datasz_log2;
+    const auto dst_g_stride = vsapi->getStride (dest, 1) >> datasz_log2;
+    const auto dst_b_stride = vsapi->getStride (dest, 2) >> datasz_log2;
+
     for (int y = 0; y < height; y++) {
         for (int x = 0; x < width; x++) {
-            int i = y * width + x;
+            const auto i_r = y * src_r_stride + x;
+            const auto i_g = y * src_g_stride + x;
+            const auto i_b = y * src_b_stride + x;
 
-            float r = src_r_plane[i], g = src_g_plane[i], b = src_b_plane[i];
+            const auto o_r = y * dst_r_stride + x;
+            const auto o_g = y * dst_g_stride + x;
+            const auto o_b = y * dst_b_stride + x;
+
+            float r = src_r_plane[i_r], g = src_g_plane[i_g], b = src_b_plane[i_b];
             float total_r = r, total_g = g, total_b = b;
             int n = 0;
 
@@ -63,7 +82,9 @@ static void ccdRun(const VSFrame *src, VSFrame *dest, float thr_sq, const VSAPI 
                 else if (comp_y >= height)
                     comp_y = 2 * (height - 1) - comp_y;
 
-                int y_offset = comp_y * width;
+                const auto y_ofs_r = comp_y * src_r_stride;
+                const auto y_ofs_g = comp_y * src_g_stride;
+                const auto y_ofs_b = comp_y * src_b_stride;
                 for (int dx = x - 12; dx <= x + 12; dx += 8) {
 
                     int comp_x = dx;
@@ -72,9 +93,9 @@ static void ccdRun(const VSFrame *src, VSFrame *dest, float thr_sq, const VSAPI 
                     else if (comp_x >= width)
                         comp_x = 2 * (width - 1) - comp_x;
 
-                    float comp_r = src_r_plane[y_offset + comp_x];
-                    float comp_g = src_g_plane[y_offset + comp_x];
-                    float comp_b = src_b_plane[y_offset + comp_x];
+                    float comp_r = src_r_plane[y_ofs_r + comp_x];
+                    float comp_g = src_g_plane[y_ofs_g + comp_x];
+                    float comp_b = src_b_plane[y_ofs_b + comp_x];
 
                     float diff_r = comp_r - r;
                     float diff_g = comp_g - g;
@@ -109,9 +130,9 @@ static void ccdRun(const VSFrame *src, VSFrame *dest, float thr_sq, const VSAPI 
             else if (calculated_b > 1)
                 calculated_b = 1;
 
-            dst_r_plane[i] = calculated_r;
-            dst_g_plane[i] = calculated_g;
-            dst_b_plane[i] = calculated_b;
+            dst_r_plane[o_r] = calculated_r;
+            dst_g_plane[o_g] = calculated_g;
+            dst_b_plane[o_b] = calculated_b;
         }
     }
 }
