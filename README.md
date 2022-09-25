@@ -1,4 +1,4 @@
-# CCD - Camcorder Color Denoise
+﻿# CCD - Camcorder Color Denoise
 
 CCD is a simple chroma denoiser. It works by selectively averaging pixels in a 25x25 matrix below
 the Euclidean distance threshold in an RGB clip. After denoising, the clip should be converted back
@@ -49,3 +49,13 @@ Or you can use cmake - though I don't know how it works, and Scrad added it. Bla
 ## Dependencies
 
 Vapoursynth, obviously. That's it though :pogchamp:
+
+## Algorithm
+
+CCD is basically a bilateral filter, with the following characteristics:
+
+- Weight functions are simplified to a box instead of a Gaussian.
+
+- The kernel is subsampled, default is 8× in each direction, so 256× total.
+
+- Works on full pixels, not just on independent color channels as video filters often do.
